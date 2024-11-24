@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mars Trail</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1a1a1a;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #333;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    button {
+      background-color: #ff5722;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #e64a19;
+    }
+    .log {
+      background-color: #444;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      overflow-y: scroll;
+      height: 150px;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+    }
+    .stat {
+      margin: 0 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mars Trail</h1>
+    <p>Lead your crew to Mars! Manage your resources and overcome challenges to reach the red planet.</p>
+    <div class="stats">
+      <div class="stat">Fuel: <span id="fuel">100</span></div>
+      <div class="stat">Food: <span id="food">100</span></div>
+      <div class="stat">Oxygen: <span id="oxygen">100</span></div>
+      <div class="stat">Crew: <span id="crew">5</span></div>
+      <div class="stat">Distance: <span id="distance">0</span> / 1000</div>
+    </div>
+    <div id="log" class="log"></div>
+    <button id="travelButton">Travel</button>
+    <button id="restButton">Rest</button>
+    <button id="repairButton">Repair</button>
+    <button id="checkSuppliesButton">Check Supplies</button>
+  </div>
+
+  <div id="miniGameContainer" style="display: none;">
+    <canvas id="asteroidCanvas" width="800" height="600" style="background: black; display: block; margin: auto;"></canvas>
+    <button id="exitAsteroidGame" style="display: block; margin: 10px auto;">Exit Mini-Game</button>
+  </div>
+
+  <script>
+    let fuel = 100;
+    let food = 100;
+    let oxygen = 100;
+    let crew = 5;
+    let distance = 0; // Distance traveled towards Mars
+    const milestones = [
+      { distance: 250, name: "The Moon", event: "You pass the Moon. Spirits are high!" },
+      { distance: 500, name: "Asteroid Belt", event: "You navigate through the asteroid belt. Minor ship damage." },
+      { distance: 750, name: "Mars Orbit", event: "You enter Mars orbit. The red planet is in sight!" },
+      { distance: 1000, name: "Mars Surface", event: "You have landed on Mars! Congratulations!" }
+    ];
+    let milestoneIndex = 0;
+    const log = document.getElementById("log");
+
+    function updateStats() {
+      document.getElementById("fuel").textContent = fuel;
+      document.getElementById("food").textContent = food;
+      document.getElementById("oxygen").textContent = oxygen;
+      document.getElementById("crew").textContent = crew;
+      document.getElementById("distance").textContent = distance;
+    }
+
+    function addLog(message) {
+      const logEntry = document.createElement("p");
+      logEntry.textContent = message;
+      log.appendChild(logEntry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function checkMilestones() {
+      if (milestoneIndex < milestones.length && distance >= milestones[milestoneIndex].distance) {
+        const milestone = milestones[milestoneIndex];
+        addLog(`Milestone Reached: ${milestone.name}. ${milestone.event}`);
+        milestoneIndex++;
+      }
+    }
+
+    function randomEvent() {
+    const events = [
+      { 
+        message: "A solar flare damages your ship. Lose 10 fuel and 1 oxygen.", 
+        effect: () => { fuel -= 10; oxygen -= 2; } 
+      },
+	  { 
+        message: "A hydrogen fuel leak has been detected. Lose 10 fuel and 1 oxygen.", 
+        effect: () => { fuel -= 10; oxygen -= 5; } 
+      },
+      { 
+        message: "You find a supply crate floating in space! Gain 15 food and 10 fuel.", 
+        effect: () => { food += 15; fuel += 10; }
+      },
+      { 
+        message: "A crew member falls ill. Lose 1 crew member and 10 food.", 
+        effect: () => { crew -= 1; food -= 10; }
+      },
+	  {
+        message: "A crew member falls out of the ship. Lose 1 stupid crew member.", 
+        effect: () => { crew -= 1; food -= 1; }
+      },
+	  {
+        message: "You find a Hitch-Hiker of the Galaxy. Gain 1 crew member.", 
+        effect: () => { crew += 1; food += 10; }
+      },
+	  { 
+        message: "Oxygen recycler malfunctions. Lose 10 oxygen and 5 crew morale.", 
+        effect: () => { oxygen -= 10; crew -= 1; }
+      },
+      { 
+        message: "Spendt the day upgrading the oxygen generator. Gain 10 oxygen and 5 crew morale.", 
+        effect: () => { oxygen += 10; crew += 1; }
+      },
+	  { 
+        message: "Asteroid dodging encounter! Brace yourself!", 
+        effect: startAsteroidGame // Mini-game encounter
+      },
+	  { 
+        message: "Alien space ships incoming! Alien encounter! Brace yourself!", 
+        effect: startAsteroidGame // Mini-game encounter
+      },
+      { 
+        message: "You skillfully navigate an asteroid field, avoiding damage.", 
+        effect: () => {} // No resources lost
+      },
+	  { 
+        message: "You watch in estonishment as a beautiful space whale floats by.", 
+        effect: () => {} // No resources lost
+      },
+	  { 
+        message: "Another peaceful day in space.", 
+        effect: () => {} // No resources lost
+      },
+	  { 
+        message: "You skillfully navigate an asteroid field, avoiding damage.", 
+        effect: () => {} // No resources lost
+      },
+      { 
+        message: "Pirate ship encountered! Defend your ship or negotiate. Lose 10 fuel if you fight.", 
+        effect: () => {
+          let result = Math.random();
+          if (result < 0.5) {
+            addLog("You win the battle, but lose 10 fuel!");
+            fuel -= 10;
+          } else {
+            addLog("The pirates steal your fuel, losing 10!");
+            fuel -= 10;
+          }
+        }
+      },
+      { 
+        message: "A mysterious space anomaly appears. Your course is altered, losing 50 distance towards Mars.", 
+        effect: () => { distance -= 60; }
+      },
+      { 
+        message: "You encounter an abandoned spacecraft. Inside, you find useful resources. Gain 20 food and 10 oxygen.", 
+        effect: () => { food += 5; oxygen += 2; }
+      },
+      { 
+        message: "A crew member volunteers to scout the ship for dangers, gaining 1 crew morale.", 
+        effect: () => { crew += 1; }
+      },
+      { 
+        message: "A mechanical failure has caused your ship's engines to slow down. Lose 10 fuel and 5 distance.", 
+        effect: () => { fuel -= 8; distance -= 20; }
+      },
+    ];
+    const event = events[Math.floor(Math.random() * events.length)];
+    addLog(event.message);
+    event.effect();
+  }
+
+    document.getElementById("travelButton").addEventListener("click", () => {
+      addLog("You travel further towards Mars.");
+      fuel -= 15;
+      food -= 10;
+      oxygen -= 10;
+      distance += 50;
+      randomEvent();
+      checkMilestones();
+      updateStats();
+      checkGameOver();
+    });
+
+    document.getElementById("restButton").addEventListener("click", () => {
+      addLog("You rest and recover supplies.");
+      food += 5;
+      oxygen += 5;
+	  fuel -= 5;
+      randomEvent();
+      updateStats();
+      checkGameOver();
+    });
+
+    document.getElementById("repairButton").addEventListener("click", () => {
+      addLog("You spend time repairing and refueling the ship.");
+      fuel += 15;
+      food -= 5;
+      oxygen += 5;
+      addLog("Repairs successful! Ship integrity improved.");
+      updateStats();
+      checkGameOver();
+    });
+
+    document.getElementById("checkSuppliesButton").addEventListener("click", () => {
+      addLog("You check your supplies. No significant events occur.");
+      updateStats();
+    });
+
+    function checkGameOver() {
+      if (fuel <= 0 || food <= 0 || oxygen <= 0 || crew <= 0) {
+        addLog("Your journey has ended. The mission failed.");
+        disableButtons();
+      } else if (distance >= 1000) {
+        addLog("Congratulations! You've successfully completed the journey to Mars.");
+        disableButtons();
+      }
+    }
+
+    function disableButtons() {
+      document.getElementById("travelButton").disabled = true;
+      document.getElementById("restButton").disabled = true;
+      document.getElementById("repairButton").disabled = true;
+      document.getElementById("checkSuppliesButton").disabled = true;
+    }
+
+    updateStats();
+    addLog("Your journey to Mars begins!");
+
+    // Mini-Game Logic
+    const miniGameContainer = document.getElementById("miniGameContainer");
+    const canvas = document.getElementById("asteroidCanvas");
+    const ctx = canvas.getContext("2d");
+    const exitAsteroidGame = document.getElementById("exitAsteroidGame");
+
+    let spaceship = { x: 375, y: 550, width: 50, height: 30 };
+    let asteroids = [];
+    let score = 0;
+    let gameInterval, asteroidInterval;
+    let isPlaying = false;
+
+    function startAsteroidGame() {
+      miniGameContainer.style.display = "block";
+      isPlaying = true;
+      score = 0;
+      asteroids = [];
+      gameInterval = setInterval(updateGame, 20);
+      asteroidInterval = setInterval(spawnAsteroid, 1500);
+      document.addEventListener("keydown", moveSpaceship);
+    }
+
+    function endAsteroidGame(success) {
+      clearInterval(gameInterval);
+      clearInterval(asteroidInterval);
+      document.removeEventListener("keydown", moveSpaceship);
+      miniGameContainer.style.display = "none";
+      isPlaying = false;
+      if (success) {
+        addLog("Asteroid dodging completed successfully! You gain 20 fuel and 20 oxygen!");
+        fuel += 20;
+		oxygen += 20;
+      } else {
+        addLog("Asteroid dodging failed. You lose 10 fuel.");
+        fuel -= 10;
+      }
+      updateStats();
+    }
+
+    function moveSpaceship(e) {
+      if (e.key === "ArrowLeft" && spaceship.x > 0) {
+        spaceship.x -= 15;
+      } else if (e.key === "ArrowRight" && spaceship.x < canvas.width - spaceship.width) {
+        spaceship.x += 15;
+      }
+    }
+
+    function spawnAsteroid() {
+      let asteroid = {
+        x: Math.random() * (canvas.width - 30),
+        y: -30,
+        width: 30,
+        height: 30,
+        speed: 6 + Math.random() * 3
+      };
+      asteroids.push(asteroid);
+    }
+
+    function updateGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw spaceship
+      ctx.fillStyle = "white";
+      ctx.fillRect(spaceship.x, spaceship.y, spaceship.width, spaceship.height);
+
+      // Move and draw asteroids
+      asteroids.forEach((asteroid, index) => {
+        asteroid.y += asteroid.speed;
+        ctx.fillStyle = "gray";
+        ctx.fillRect(asteroid.x, asteroid.y, asteroid.width, asteroid.height);
+
+        if (asteroid.y > canvas.height) {
+          asteroids.splice(index, 1);
+          score++;
+        }
+
+        // Check for collision
+        if (
+          spaceship.x < asteroid.x + asteroid.width &&
+          spaceship.x + spaceship.width > asteroid.x &&
+          spaceship.y < asteroid.y + asteroid.height &&
+          spaceship.y + spaceship.height > asteroid.y
+        ) {
+          endAsteroidGame(false);
+        }
+      });
+
+      // Game Over Check
+      if (score >= 20) {
+        endAsteroidGame(true);
+      }
+    }
+
+    exitAsteroidGame.addEventListener("click", () => endAsteroidGame(false));
+  </script>
+</body>
+</html>
